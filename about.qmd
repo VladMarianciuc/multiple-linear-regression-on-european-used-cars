@@ -2,8 +2,6 @@
 title: "About"
 ---
 
-About this site
+Site realizat pentru prezentarea proiectului final la cursul Modele de Regresie, anul III, semestrul 2, Facultatea de Matematică și Informatică, Universitatea București.
 
-```{r}
-1 + 1
-```
+<i>Ce este roșie și miroase ca o vopsea albastră?
