@@ -1,0 +1,593 @@
+---
+title: "Proiect Modele de Regresie"
+subtitle: "Estimarea prețurilor pe piața auto second-hand din Europa folosind modele de regresie multiplă"
+abstract: "Lucrarea prezintă 2 modele de regresie multiplă (unul liniar și unul cu componente neliniare) cu scopul de a estima prețul mașinilor second-hand în funcție de parametrii: kilometraj, an fabricație, capacitate motor, putere motor, tipul de transmisie."
+format: html
+editor: visual
+author: "Vlad Marianciuc"
+date: "11 mai 2024"
+theme: flatly
+smooth-scroll: true
+code-fold: show
+---
+
+## Introducere
+
+Sunt mulți români care au sau doresc să-și ia o mașină la mâna a doua, iar motivul pentru care nu optează pentru una nouă este, aproape exclusiv, cel financiar. Evident, o mașină nouă este mai scumpă decât una veche. Dar cele vechi vin cu uzură variabilă și alte riscuri.
+
+Pe lângă aspectele statice care influențează prețul unei mașini (precum puterea motorului sau capacitatea cilindrică), prețul unei mașini vechi este, în plus, influențat de uzura pe care aceasta a acumulat-o.
+
+Cea mai importantă parte a unei mașini este motorul. Este de asemenea cea mai complexă parte, cu multe elemente care se învârt la viteze de mii de rotații pe minut. Prin urmare, uzura motorului este un factor cheie în evaluarea prețului unei mașini, iar un mod facil (deși nu tot timpul precis) pentru a evalua uzura motorului este distanța pe care mașina (motorul) a parcurs-o până într-un anumit moment, mai exact: kilometrajul mașinii.
+
+Luând în considerare faptul că primul lucru la care ne uităm când luăm o mașină este prețul, voi crea 2 modele de estimare, în medie, a acestuia luând în considerare kilometrajul mașinii, anul de producție, capacitatea și puterea motorului și tipul transmisiei.
+
+## Metode
+
+Pentru a face acest lucru:
+
+-   Voi lua un set de date ale masinilor vechi vandute in Europa.
+-   Voi curata setul de date de informatii gresite sau lipsa.
+-   Pentru fiecare dintre parametrii pe care i-am amintit mai sus, voi folosi o heuristică în 2 pași. Voi extrage un subset din setul inițial după care voi plota histograma subsetului pentru a vedea dacă prezintă regularitate sau dacă subsetul este încă alterat.
+-   Voi alege din totalul producatorilor de masini pe cei 8 care ocupa volumul cel mai mare pe piata second-hand din Europa.
+-   Pe acest set de date modificat, voi plota felul in care pretul se raporteaza la kilometraj pentru a crea o imagine de ansamblu.
+-   Voi alege aleatoriu un subset de 10000 de observatii din acest set pentru a putea face mai rapid calculele.
+-   Pe acest subset voi plota distributia preturilor in functie de fiecare parametru si voi face pentru fiecare un model de regresie liniar si unul neliniar (pe care il voi reprezenta grafic).
+-   Voi reprezenta grafic reziduurile modelelor de mai sus.
+-   Voi crea un model de regresie multiplă liniară si unul neliniară pentru a estima, în medie, pretul in raport cu kilometrajul si anul de fabricatie.
+-   Voi reprezenta grafic în ecrane interactive aceste 2 modele.
+-   Voi crea un model de regresie multiplă liniară și unul neliniar pentru a estima, în medie, prețul în raport cu kilometrajul, anul de fabricație, capacitatea motorului, puterea motorului.
+-   Voi extrage coeficienții acestui ultim model și îi voi prezenta, comparativ, într-un tabel împreună cu coeficienții modelelor anterioare.
+-   Voi testa acest ultim model.
+
+## Rezultate
+
+#### I. Definirea setului de date
+
+Încărcarea librăriilor pe care le voi folosi în acest proiect.
+
+```{r}
+#| label: load-packages
+#| output: false
+
+library(tidyverse)
+library(plotly)
+library(kableExtra)
+library(knitr)
+```
+
+Setul de date l-am luat de pe kaggle.com. Am ales acest set de date deoarece are date preluate din Europa. Este un set de date imens, cu 3.5 milioane de intrari. Din păcate multe sunt lipsă, completate greșit sau exagerat și va fi necesară o triere. Voi afișa numărul de intrări după fiecare triere.
+
+```{r}
+#| label: read-data
+
+data <- read.csv('datasets\\cars.csv') 
+
+sprintf("Setul de date conține %1.f intrări", nrow(data))
+```
+
+Puțină ordine, redenumirea coloanelor cu nume mai simple și intuitive, extragerea coloanelor care conțin parametrii de interes și eliminarea rândurilor care conțin celule goale.
+
+```{r}
+#| label: cleaning data set
+
+data <- data[-c(7, 8, 9, 11, 12, 13, 14, 15)] # pastrarea coloanelor cu datele pe care le voi folosi in modelul de regresie
+
+colnames(data) <- c('maker', 'model', 'mileage', 'year', 'engine', 'power', 'transmission', 'price') # redenumirea coloanelor cu nume mai simple si intuitive
+
+data1 <- data[-which(data$maker == "" | data$model == "" | data$transmission ==""), ] # eliminarea randurilor care contin celule goale
+
+sprintf("Setul de date conține %1.f intrări", nrow(data1))
+```
+
+Aici încep să aplic heuristici pentru a extrage intrările relevante. Pentru fiecare parametru vor fi 2 trieri:
+
+1.  Trierea printr-o aplicarea unei heuristici de bun simți.
+2.  Plotarea histogramei astfel rezultate.
+3.  A doua triere bazată pe evaluarea vizuală a histogramei.
+
+<b>Trierea dupa pret:</b> Mă intersează piața mașinilor second-hand, zona de mijloc în care oamenii de rând caută o mașină pentru nevoile lor zilnice. Nu mă interesează, de exemplu, mașinile de epocă (care apar aici) și sunt rare dar au prețuri foarte mari ce pot debalansa modelul. De asemenea nu mă interesează rablele sau mașinile care sunt multe și vândute pentru piese (adică cele cu prețuri foarte mici).
+
+```{r}
+#| label: price-heuristics
+
+data2 <- subset(data1, price<10^5 & price>1000) # alegerea masinilor cu pret intre 1000 - 100k euro
+
+hist(data2$price, xlab='Preț (euro)', ylab="Nr. Mașini", main="Distribuția mașinilor după preț \n - prima ajustare - ", breaks=50)
+
+data2 <- subset(data2, price<5*10^4 & price>2000) # alegerea masinilor cu pret intre 1000 - 50k euro
+
+hist(data2$price, xlab='Preț (euro)', ylab="Nr. Mașini", main="Distribuția mașinilor după preț \n - a doua ajustare - ", breaks=50)
+
+sprintf("Setul de date conține %1.f intrări", nrow(data2))
+```
+
+<b>Trierea dupa kilometraj:</b>
+
+```{r}
+#| label: mileage-heuristics
+
+data3 <- subset(data2, mileage<5*10^5 & mileage>10000) # alegerea masinilor cu kilometraj intre 10k km - 500k km
+
+hist(data3$mileage, xlab='Kilometraj (km)', ylab="Nr. Mașini", main="Distribuția mașinilor după kilometraj \n - prima ajustare - ", breaks=50)
+
+data3 <- subset(data3, mileage<3.5*10^5 & mileage>30000) # alegerea masinilor cu kilometraj intre 30k km - 350k km
+
+hist(data3$mileage, xlab='Kilometraj (km)', ylab="Nr. Mașini", main="Distribuția mașinilor după kilometraj \n - a doua ajustare - ", breaks=50)
+
+sprintf("Setul de date conține %1.f intrări", nrow(data3))
+```
+
+<b>Trierea dupa anul de producție:</b>
+
+```{r}
+#| label: year-heuristics
+
+data4 <- subset(data3, year>1990)  # alegerea masinilor mai noi de 1990
+
+hist(data4$year, xlab='Anul de Fabricație', ylab="Nr. Mașini", main="Distribuția mașinilor după anul de fabricație \n - prima ajustare - ", breaks=25)
+
+data4 <- subset(data4, year>1995) # alegerea masinilor mai noi de 1995
+
+hist(data4$year, xlab='Anul de Fabricație', ylab="Nr. Mașini", main="Distribuția mașinilor după anul de fabricație \n - a doua ajustare - ", breaks=25)
+
+sprintf("Setul de date conține %1.f intrări", nrow(data4))
+```
+
+<b>Trierea dupa capacitatea motorului:</b>
+
+```{r}
+#| label: engine-heuristics
+
+data5 <- subset(data4, engine>500 & engine<5000) # alegerea masinilor cu capacitate cilindrica intre 500 cm^3 - 5000 cm^3
+
+hist(data5$engine, xlab='Capacitate cilindrica (cm3)', ylab="Nr. Mașini", main="Distribuția mașinilor după capacitatea motorului \n - prima ajustare - ")
+
+data5 <- subset(data5, engine>500 & engine<3500) # alegerea masinilor cu capacitate cilindrica intre 500 cm^3 - 3500 cm^3
+
+hist(data5$engine, xlab='Capacitate cilindrica (cm3)', ylab="Nr. Mașini", main="Distribuția mașinilor după capacitatea motorului \n - a doua ajustare - ")
+
+sprintf("Setul de date conține %1.f intrări", nrow(data5))
+```
+
+\<`b>`{=html}Trierea dupa puterea motorului:</b>
+
+```{r}
+#| label: power-heuristics
+
+data6 <- subset(data5, power>40 & power<400) # alegerea masinilor cu putere intre 40 - 400 cai
+
+hist(data6$power, xlab='Cai Putere', ylab="Nr. Mașini", main="Distribuția mașinilor după puterea motorului \n - prima ajustare - ")
+
+data6 <- subset(data6, power>40 & power<250) # alegerea masinilor cu putere intre 40 - 250 cai
+
+hist(data6$power, xlab='Cai Putere', ylab="Nr. Mașini", main="Distribuția mașinilor după puterea motorului \n - prima ajustare - ")
+
+sprintf("Setul de date conține %1.f intrări", nrow(data6))
+```
+
+\<`b>`{=html}Trierea dupa cele mai vândute mărci de mașini second-hand în Europa:</b>
+
+```{r}
+#| label: model-heuristics
+
+
+# s <- data7 %>%
+#   group_by(maker) %>%
+#   tally(sort=TRUE)
+
+data7 <- data6[which(data6$maker=="volkswagen" |
+                      data6$maker=="ford" | 
+                       data6$maker=="renault" |
+                       data6$maker=="peugeot" |
+                       data6$maker=="bmw" |
+                       data6$maker=="opel" |
+                       data6$maker=="mercedes" |
+                       data6$maker=="audi" |
+                       data6$maker=="skoda" |
+                       data6$maker=="volvo"),] # alegerea celor mai vandute 8 branduri de masini second-hand in Europa + Volvo (masina pe care o am eu)
+
+data7$model <- as.factor(data7$model)
+data7$maker <- as.factor(data7$maker)
+data7$transmission <- as.factor(data7$transmission)
+
+sprintf("Setul de date conține %1.f intrări", nrow(data7))
+
+summary(data7)
+```
+
+#### II. Modele de regresie simple
+
+Imaginea de ansamblu pe setul de date obținut. Preț vs Kilometraj. Observăm că trendul confirmă intuiția, anume că e de așteptat ca o mașină cu un rulaj mai mare să aibă, în medie, un preț mai mic decât mașini cu rulaj mai mic. De asemenea, observăm că mașinile cu transmisie automată sunt mai scumpe decât cele cu transmie manuală, lucru care este adevărat.
+
+Altă observație este că, în general, mașinile cu un rulaj mai mare au, în medie, o vechime mai mare, lucru ce se potrivește cu bunul mers al lucrurilor
+
+```{r}
+#| label: plots-price-vs-mileage
+
+ggplot(data7, aes(x = mileage, y = price, col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Preț vs Kilometraj \n - colorare după Anul de Fabricație -",
+              x = "Kilometraj",
+              y = "Preț")
+
+ggplot(data7, aes(x = mileage, y = price, col = transmission)) + 
+         geom_point(size=.1) +
+         labs(title = "Preț vs Kilometraj \n - colorare după Transmisie -",
+              x = "Kilometraj (km)",
+              y = "Preț (euro)")
+```
+
+Aici aleg un subset de 10000 de observații din setul de mai sus, astfel calculatorul poate efectua mai rapid calculele. Pentru că selecția este aleatorie, setul nou rezultat va fi proporțional cu cel din care s-a făcut selecția și va păstra aceleași caracteristici.
+
+```{r}
+
+data8 <- data7[sample(nrow(data7), 10^4),]
+```
+
+```{r}
+ggplot(data8, aes(x = mileage, y = price, col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Preț vs Kilometraj \n - model liniar -",
+              x = "Kilometraj (km)",
+              y = "Preț (euro)") +
+        geom_smooth(method = "lm", formula = y ~ x, col="black")
+
+ggplot(data8, aes(x = mileage, y = price, col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Preț vs Kilometraj \n - model neliniar determinat -",
+              x = "Kilometraj (km)",
+              y = "Preț (euro)") +
+        geom_smooth(method = "lm", formula = y ~ I(x^(-1/100)), col = "red")
+
+ggplot(data8, aes(x = mileage, y = price, col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Preț vs Kilometraj \n - model neliniar cu curbe Bezier -",
+              x = "Kilometraj (km)",
+              y = "Preț (euro)") +
+        geom_smooth(method = "lm", formula = y ~ splines::bs(x, 3), col="orange")
+```
+
+```{r}
+mod_lin1 <- lm(price~mileage, data=data8)
+
+mod_nelin_d1 <- lm(price~I(mileage^(-1/100)), data=data8)
+
+mod_nelin_bs1 <- lm(price~splines::bs(mileage, 3), data=data8)
+
+ggplot(data8, aes(x = mileage, y = residuals(mod_lin1), col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Reziduuri \n - model liniar -",
+              x = "Kilometraj (km)",
+              y = "Reziduuri") +
+        geom_abline(intercept=0, slope=0, col="black", lwd=1)
+
+ggplot(data8, aes(x = mileage, y = residuals(mod_nelin_d1), col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Reziduuri \n - model neliniar determinat -",
+              x = "Kilometraj (km)",
+              y = "Reziduuri") +
+        geom_abline(intercept=0, slope=0, col="red", lwd=1)
+
+ggplot(data8, aes(x = mileage, y = residuals(mod_nelin_bs1), col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Reziduuri \n - model cu curbe Bezier -",
+              x = "Kilometraj (km)",
+              y = "Reziduuri") +
+        geom_abline(intercept=0, slope=0, col="orange", lwd=1)
+```
+
+```{r}
+
+ggplot(data8, aes(x = factor(year), y = price, col=transmission)) + 
+         geom_boxplot() +
+         labs(title = "Preț vs Anul de Fabricație \n - model liniar -",
+              x = "An de Fabricație",
+              y = "Preț (euro)") +
+        geom_smooth(method = "lm", formula = y ~ x, col = "black", aes(group=1)) +
+        theme(axis.text.x = element_text(size=7, angle=45),
+              axis.text.y = element_text(size=7, angle=45))
+
+ggplot(data8, aes(x = factor(year), y = price, col=transmission)) + 
+         geom_boxplot() +
+         labs(title = "Preț vs Anul de Fabricație \n - model neliniar determinat -",
+              x = "An de Fabricație",
+              y = "Preț (euro)") +
+        geom_smooth(method = "lm", formula = y ~ I(x^3), col = "red", aes(group=1)) +
+        theme(axis.text.x = element_text(size=7, angle=45),
+              axis.text.y = element_text(size=7, angle=45))
+
+ggplot(data8, aes(x = factor(year), y = price, col=transmission)) + 
+         geom_boxplot() +
+         labs(title = "Preț vs Anul de Fabricație \n - model neliniar cu curbe Bezier -",
+              x = "An de Fabricație",
+              y = "Preț (euro)") +
+        geom_smooth(method = "lm", formula = y ~ splines::bs(x, 4), col = "orange", aes(group=1)) +
+        theme(axis.text.x = element_text(size=7, angle=45),
+              axis.text.y = element_text(size=7, angle=45))
+```
+
+```{r}
+
+mod_lin2 <- lm(price~year, data=data8)
+
+mod_nelin_d2 <- lm(price~I(year^3), data=data8)
+
+mod_nelin_bs2 <- lm(price~splines::bs(year, 4), data=data8)
+
+ggplot(data8, aes(x = factor(year), y = residuals(mod_lin2), col = transmission)) + 
+         geom_boxplot() +
+         labs(title = "Reziduuri \n - model liniar -",
+              x = "An de Fabricație",
+              y = "Reziduuri") +
+        geom_abline(intercept=0, slope=0, col="black", lwd=1)+
+        theme(axis.text.x = element_text(size=7, angle=45),
+              axis.text.y = element_text(size=7, angle=45))
+
+ggplot(data8, aes(x = factor(year), y=residuals(mod_nelin_d2), col=transmission)) +
+         geom_boxplot() +
+         labs(title = "Reziduuri \n - model neliniar determinat -",
+              x = "An de Fabricație",
+              y = "Reziduuri") +
+        geom_abline(intercept=0, slope=0, col="orange", lwd=1)+
+        theme(axis.text.x = element_text(size=7, angle=45),
+              axis.text.y = element_text(size=7, angle=45))
+
+ggplot(data8, aes(x = factor(year), y=residuals(mod_nelin_bs2), col=transmission)) +
+         geom_boxplot() +
+         labs(title = "Reziduuri \n - model neliniar cu curbe Bezier -",
+              x = "An de Fabricație",
+              y = "Reziduuri") +
+        geom_abline(intercept=0, slope=0, col="red", lwd=1)+
+        theme(axis.text.x = element_text(size=7, angle=45),
+              axis.text.y = element_text(size=7, angle=45))
+```
+
+```{r}
+
+ggplot(data8, aes(x = engine, y = price, col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Preț vs Capacitatea motorului \n - model liniar -",
+              x = "Capacitate cilindrică (cm3)",
+              y = "Preț (euro)") +
+        geom_smooth(method = "lm", formula = y ~ x, col="black")
+
+ggplot(data8, aes(x = engine, y = price, col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Preț vs Capacitatea motorului \n - model neliniar cu curbe Bezier -",
+              x = "Capacitate cilindrică (cm3)",
+              y = "Preț (euro)") +
+        geom_smooth(method = "lm", formula = y ~ splines::bs(x, 3), col = "red")
+```
+
+```{r}
+
+mod_lin3 <- lm(price~engine, data=data8)
+
+mod_nelin_bs3 <- lm(price~splines::bs(engine, 3), data=data8)
+
+ggplot(data8, aes(x = engine, y = residuals(mod_lin3), col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Reziduuri \n - model liniar -",
+              x = "Capacitate cilindrică (cm3)",
+              y = "Reziduuri") +
+        geom_abline(intercept=0, slope=0, col="black", lwd=1)
+
+
+ggplot(data8, aes(x = engine, y = residuals(mod_nelin_bs3), col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Reziduuri \n - model cu curbe Bezier -",
+              x = "Capacitate cilindrică (cm3)",
+              y = "Reziduuri") +
+        geom_abline(intercept=0, slope=0, col="red", lwd=1)
+
+```
+
+```{r}
+ggplot(data8, aes(x = power, y = price, col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Preț vs Puterea motorului \n - model liniar -",
+              x = "Cai putere",
+              y = "Preț (euro)") +
+        geom_smooth(method = "lm", formula = y ~ x, col="black")
+
+ggplot(data8, aes(x = power, y = price, col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Preț vs Puterea motorului \n - model neliniar cu curbe Bezier -",
+              x = "Cai putere (cm3)",
+              y = "Preț (euro)") +
+        geom_smooth(method = "lm", formula = y ~ splines::bs(x, 4), col = "red")
+```
+
+```{r}
+mod_lin4 <- lm(price~power, data=data8)
+
+mod_nelin_bs4 <- lm(price~splines::bs(power, 3), data=data8)
+
+ggplot(data8, aes(x = power, y = residuals(mod_lin4), col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Reziduuri \n - model liniar -",
+              x = "Cai putere",
+              y = "Reziduuri") +
+        geom_abline(intercept=0, slope=0, col="black", lwd=1)
+
+
+ggplot(data8, aes(x = power, y = residuals(mod_nelin_bs4), col = year)) + 
+         geom_point(size=.1) +
+         labs(title = "Reziduuri \n - model cu curbe Bezier -",
+              x = "Cai putere",
+              y = "Reziduuri") +
+        geom_abline(intercept=0, slope=0, col="red", lwd=1)
+```
+
+#### III. Modele de regresie cu 2 parametri
+
+```{r}
+
+grid.lines <- 25
+x.pred <- seq(min(data8$mileage), max(data8$mileage), length.out = grid.lines)
+y.pred <- seq(min(data8$year), max(data8$year), length.out = grid.lines)
+xy <- expand.grid(mileage = x.pred, year = y.pred)
+
+mod1_mile_year <- lm(price ~ mileage+year, data=data8)
+mod2_mile_year <- lm(price ~ I(mileage^(-1/100))+I(year^3), data=data8)
+mod3_mile_year <- lm(price ~ I(mileage^(-1/100))+splines::bs(year, 4), data=data8)
+
+z.pred1 <- matrix(predict(mod1_mile_year, newdata = xy), 
+                 nrow = grid.lines, ncol = grid.lines)
+
+z.pred2 <- matrix(predict(mod2_mile_year, newdata = xy), 
+                 nrow = grid.lines, ncol = grid.lines)
+
+z.pred3 <- matrix(predict(mod3_mile_year, newdata = xy), 
+                 nrow = grid.lines, ncol = grid.lines)
+
+```
+
+```{r}
+plot_ly( 
+  data8, x = ~mileage, y = ~year, z = ~price, 
+  color = ~transmission, colors = c('#BF382A', '#0C4B8E')
+  ) %>%
+  add_markers(size=.1) %>% 
+  add_surface(x = ~x.pred, y = ~y.pred, z = t(z.pred1)) %>%
+  layout(
+    scene = list(xaxis = list(title = 'Kilometraj (km)'),
+        yaxis = list(title = 'An de Frabricatie'),
+        zaxis = list(title = 'Pret (euro)'))
+        ) %>% hide_colorbar()
+```
+
+```{r}
+
+plot_ly(
+  data8, x = ~mileage, y = ~year, z = ~price, 
+  color = ~transmission, colors = c('#BF382A', '#0C4B8E')
+  ) %>%
+  add_markers(size=.1) %>%
+  add_surface(x = ~x.pred, y = ~y.pred, z = t(z.pred3), opacity = 1) %>%
+  layout(
+    scene = list(xaxis = list(title = 'Kilometraj (km)'),
+        yaxis = list(title = 'An de Frabricatie'),
+        zaxis = list(title = 'Pret (euro)'))
+        ) %>% hide_colorbar()
+
+```
+
+#### IV. Modele de regresie cu 4 parametri
+
+```{r}
+
+coef_km_lin <- round(coef(mod_lin1), 3)
+coef_an_lin <- round(coef(mod_lin2), 3)
+coef_motor_lin <- round(coef(mod_lin3), 3)
+coef_putere_lin <- round(coef(mod_lin4), 3)
+suma <- mean(coef_km_lin[1], coef_an_lin[1], coef_motor_lin[1], coef_putere_lin[1])
+```
+
+```{r}
+
+coef_km_nelin <- round(coef(mod_nelin_bs1), 3)
+coef_an_nelin <- round(coef(mod_nelin_bs2), 3)
+coef_motor_nelin <- round(coef(mod_nelin_bs3), 3)
+coef_putere_nelin <- round(coef(mod_nelin_bs4), 3)
+suma <- mean(coef_km_nelin[1], coef_an_nelin[1], coef_motor_nelin[1], coef_putere_nelin[1])
+```
+
+```{r}
+mod_final_liniar <- lm(price~mileage+year+engine+power, data=data8)
+coef_final_lin <- round(coef(mod_final_liniar), 3)
+                            
+mod_final_neliniar_bs <- lm(price~I(mileage^(-1/100))+splines::bs(year, 4)+engine+power, data=data8)
+coef_final_nelin_bs <- round(coef(mod_final_neliniar_bs), 3)
+```
+
+```{r}
+coeficienti <- c("model separat", "model final")
+termen_liber <- c(suma, coef_final_lin[1])
+kilometraj <- c(coef_km_lin[2], coef_final_lin[2])
+an <- c(coef_an_lin[2], coef_final_lin[3])
+motor <- c(coef_motor_lin[2], coef_final_lin[4])
+putere <- c(coef_putere_lin[2], coef_final_lin[5])
+
+df1 <- data.frame(coeficienti, termen_liber, kilometraj, an, motor,putere)
+
+df1 %>%
+  kbl() %>%
+  kable_styling()
+```
+
+```{r}
+coeficienti <- c("model separat", "model final")
+termen_liber <- c(suma, coef_final_nelin_bs[1])
+f_kilometraj <- c(coef_km_nelin[2], coef_final_nelin_bs[2])
+an1 <- c(coef_an_nelin[2], coef_final_nelin_bs[3])
+an2 <- c(coef_an_nelin[3], coef_final_nelin_bs[4])
+an3 <- c(coef_an_nelin[4], coef_final_nelin_bs[5])
+an4 <- c(coef_an_nelin[5], coef_final_nelin_bs[6])
+motor <- c(coef_motor_lin[2], coef_final_nelin_bs[7])
+putere <- c(coef_putere_lin[2], coef_final_nelin_bs[8])
+
+df2 <- data.frame(coeficienti, termen_liber, f_kilometraj, an1, an2, an3, an4, motor,putere)
+
+df2 %>%
+  kbl() %>%
+  kable_styling()
+```
+
+## Discuții și concluzii
+
+Folosirea unui model de regresie este un instrument puternic, util atunci când vrei să faci predicții în baza unor seturi de date considerabile. Totuși este foarte important felul în care acest set de date este construit, triat, normalizat. Căci rezultatele vor fi pe măsura setului de date. Ideal este ca modelul nostru să aibă o varianță regulată astfel încât setul de date să nu dea valori cu abateri mari.
+
+```{r}
+
+new <- data.frame(mileage = 1.5*10^5, year=2008, engine=1600, power=90)
+data_car <- data7 %>%
+  filter(maker=="ford" & model=="focus")
+
+mod_final_liniar1 <- lm(price~mileage+year+engine+power, data=data_car)
+mod_final_neliniar_bs1 <- lm(price~I(mileage^(-1/100))+splines::bs(year, 4)+engine+power, data=data_car)
+
+pred1 <- predict(mod_final_liniar1, newdata=new)
+pred2 <- predict(mod_final_neliniar_bs1, newdata=new)
+
+print("Cât va costa, în medie, un Ford Focus din 2008, cu motor de 1600 cm3, 90 de cai putere și cu 150000 km?")
+sprintf("Modelul liniar pe care l-am creat ne spune: %1.f euro", pred1)
+sprintf("Modelul neliniar pe care l-am creat ne spune: %1.f euro", pred2)
+```
+
+Conform imaginii de mai jos, prezicerea nu este așa de precisă. Dar este pe acolo, este important de reamintit că acest model returnează o predicție în medie a prețului unei mașini second-hand în funcție de cei 4 parametrii. Numărul mare și diferit de mașini duc la o varianță a reziduurilor destul mare. Cu toate astea, acest set de date, din felul în care a fost construit, poate fi folosit pentru a obține prețuri pentru producători anume și chiar pentru modele anume. Astfel devine un instrument mai util și mai precis decât dacă vom căuta o mașină generică.
+
+```{r echo=FALSE, out.width="100%"}
+
+knitr::include_graphics("datasets\\ford_focus.png", error=FALSE)
+```
+
+```{r}
+new1 <- data.frame(mileage = .9*10^5, year=2010, engine=1600, power=100)
+data_car1 <- data7 %>%
+  filter(maker=="volvo" & model=="c30")
+
+mod_final_liniar1 <- lm(price~mileage+year+engine+power, data=data_car1)
+mod_final_neliniar_bs1 <- lm(price~I(mileage^(-1/100))+splines::bs(year, 4)+engine+power, data=data_car1)
+
+pred11 <- predict(mod_final_liniar1, newdata=new1)
+pred21 <- predict(mod_final_neliniar_bs1, newdata=new1)
+
+print("Cât va costa, în medie, un Volvo C30 din 2010, cu motor de 1600 cm3, 100 de cai putere și cu 90000 km?")
+sprintf("Modelul liniar pe care l-am creat ne spune: %1.f euro", pred11)
+sprintf("Modelul neliniar pe care l-am creat ne spune: %1.f euro", pred21)
+```
+
+Aici, de exemplu, modelele ne oferă aceste cifre. Eu am achiziționat un Volvo C30 în Decembrie 2023 care se încadrează în acești parametri și am plătit pe el 4250 euro.
+
+O fi varianța de vină? Sau am prins eu un deal foarte bun? Poate puțin din ambele.
+
+<i>Vă mulțumesc</i>
+
+### Referințe
+
+\(1\) <https://www.kaggle.com/datasets/nestorwinamo/used-car-database-in-europe>
+
+\(2\) <https://alexamarioarei.quarto.pub/curs-mreg-fmi/>
+
+\(3\)
