@@ -2,10 +2,17 @@
 title: "Proiect Modele de Regresie"
 subtitle: "Estimarea prețurilor pe piața auto second-hand din Europa folosind modele de regresie multiplă"
 abstract: "Lucrarea prezintă 2 modele de regresie multiplă (unul liniar și unul cu componente neliniare) cu scopul de a estima prețul mașinilor second-hand în funcție de parametrii: kilometraj, an fabricație, capacitate motor, putere motor, tipul de transmisie."
-format: html
+format:
+  html:
+    grid: 
+      body-width: 1400px
+    resources: 
+      - shinylive-sw.js
+filters: 
+  - shinylive
 editor: visual
 author: "Vlad Marianciuc"
-date: "11 mai 2024"
+date: "11 May 2024"
 theme: flatly
 smooth-scroll: true
 code-fold: show
@@ -149,7 +156,7 @@ hist(data5$engine, xlab='Capacitate cilindrica (cm3)', ylab="Nr. Mașini", main=
 sprintf("Setul de date conține %1.f intrări", nrow(data5))
 ```
 
-\<`b>`{=html}Trierea dupa puterea motorului:</b>
+<b>Trierea dupa puterea motorului:</b>
 
 ```{r}
 #| label: power-heuristics
@@ -165,7 +172,7 @@ hist(data6$power, xlab='Cai Putere', ylab="Nr. Mașini", main="Distribuția maș
 sprintf("Setul de date conține %1.f intrări", nrow(data6))
 ```
 
-\<`b>`{=html}Trierea dupa cele mai vândute mărci de mașini second-hand în Europa:</b>
+<b>Trierea dupa cele mai vândute mărci de mașini second-hand în Europa:</b>
 
 ```{r}
 #| label: model-heuristics
@@ -226,21 +233,21 @@ data8 <- data7[sample(nrow(data7), 10^4),]
 
 ```{r}
 ggplot(data8, aes(x = mileage, y = price, col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Preț vs Kilometraj \n - model liniar -",
               x = "Kilometraj (km)",
               y = "Preț (euro)") +
         geom_smooth(method = "lm", formula = y ~ x, col="black")
 
 ggplot(data8, aes(x = mileage, y = price, col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Preț vs Kilometraj \n - model neliniar determinat -",
               x = "Kilometraj (km)",
               y = "Preț (euro)") +
         geom_smooth(method = "lm", formula = y ~ I(x^(-1/100)), col = "red")
 
 ggplot(data8, aes(x = mileage, y = price, col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Preț vs Kilometraj \n - model neliniar cu curbe Bezier -",
               x = "Kilometraj (km)",
               y = "Preț (euro)") +
@@ -255,21 +262,21 @@ mod_nelin_d1 <- lm(price~I(mileage^(-1/100)), data=data8)
 mod_nelin_bs1 <- lm(price~splines::bs(mileage, 3), data=data8)
 
 ggplot(data8, aes(x = mileage, y = residuals(mod_lin1), col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Reziduuri \n - model liniar -",
               x = "Kilometraj (km)",
               y = "Reziduuri") +
         geom_abline(intercept=0, slope=0, col="black", lwd=1)
 
 ggplot(data8, aes(x = mileage, y = residuals(mod_nelin_d1), col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Reziduuri \n - model neliniar determinat -",
               x = "Kilometraj (km)",
               y = "Reziduuri") +
         geom_abline(intercept=0, slope=0, col="red", lwd=1)
 
 ggplot(data8, aes(x = mileage, y = residuals(mod_nelin_bs1), col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Reziduuri \n - model cu curbe Bezier -",
               x = "Kilometraj (km)",
               y = "Reziduuri") +
@@ -345,14 +352,14 @@ ggplot(data8, aes(x = factor(year), y=residuals(mod_nelin_bs2), col=transmission
 ```{r}
 
 ggplot(data8, aes(x = engine, y = price, col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Preț vs Capacitatea motorului \n - model liniar -",
               x = "Capacitate cilindrică (cm3)",
               y = "Preț (euro)") +
         geom_smooth(method = "lm", formula = y ~ x, col="black")
 
 ggplot(data8, aes(x = engine, y = price, col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Preț vs Capacitatea motorului \n - model neliniar cu curbe Bezier -",
               x = "Capacitate cilindrică (cm3)",
               y = "Preț (euro)") +
@@ -366,7 +373,7 @@ mod_lin3 <- lm(price~engine, data=data8)
 mod_nelin_bs3 <- lm(price~splines::bs(engine, 3), data=data8)
 
 ggplot(data8, aes(x = engine, y = residuals(mod_lin3), col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Reziduuri \n - model liniar -",
               x = "Capacitate cilindrică (cm3)",
               y = "Reziduuri") +
@@ -374,7 +381,7 @@ ggplot(data8, aes(x = engine, y = residuals(mod_lin3), col = year)) +
 
 
 ggplot(data8, aes(x = engine, y = residuals(mod_nelin_bs3), col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Reziduuri \n - model cu curbe Bezier -",
               x = "Capacitate cilindrică (cm3)",
               y = "Reziduuri") +
@@ -384,14 +391,14 @@ ggplot(data8, aes(x = engine, y = residuals(mod_nelin_bs3), col = year)) +
 
 ```{r}
 ggplot(data8, aes(x = power, y = price, col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Preț vs Puterea motorului \n - model liniar -",
               x = "Cai putere",
               y = "Preț (euro)") +
         geom_smooth(method = "lm", formula = y ~ x, col="black")
 
 ggplot(data8, aes(x = power, y = price, col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Preț vs Puterea motorului \n - model neliniar cu curbe Bezier -",
               x = "Cai putere (cm3)",
               y = "Preț (euro)") +
@@ -404,7 +411,7 @@ mod_lin4 <- lm(price~power, data=data8)
 mod_nelin_bs4 <- lm(price~splines::bs(power, 3), data=data8)
 
 ggplot(data8, aes(x = power, y = residuals(mod_lin4), col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Reziduuri \n - model liniar -",
               x = "Cai putere",
               y = "Reziduuri") +
@@ -412,7 +419,7 @@ ggplot(data8, aes(x = power, y = residuals(mod_lin4), col = year)) +
 
 
 ggplot(data8, aes(x = power, y = residuals(mod_nelin_bs4), col = year)) + 
-         geom_point(size=.1) +
+         geom_point(size=.5) +
          labs(title = "Reziduuri \n - model cu curbe Bezier -",
               x = "Cai putere",
               y = "Reziduuri") +
@@ -584,10 +591,116 @@ O fi varianța de vină? Sau am prins eu un deal foarte bun? Poate puțin din am
 
 <i>Vă mulțumesc</i>
 
+În continuare găsiți o aplicație care folosește cele 2 modele de mai sus pentru a estima, în medie, prețul unor mașini din acest set de date. Puteți selecta parametrii în voie. Nu este cel mai precis model, dar a fost o plăcere să-l realizez și am învățat multe în acest proces. Have fun!
+
+```{shinylive-r}
+#| standalone: true
+#| viewerHeight: 800
+library(shiny)
+library(bslib)
+library(tidyverse)
+
+data <- read.csv("https://media.githubusercontent.com/media/VladMarianciuc/multiple-linear-regression-on-european-used-cars/main/datasets/date_masini_curate.csv")
+
+theme <- bs_theme(font_scale = 1.5)
+
+# Define UI for app that draws a histogram ----
+ui <- page_fluid(
+  selectInput('maker','Selectează marca', unique(data$maker)),
+  uiOutput("mychoices"),
+  sliderInput(
+    "km",
+    "Kilometraj:",
+    min = 30000,
+    max = 350000,
+    value = 100000
+  ),
+  sliderInput(
+    "an",
+    "Anul de fabricație:",
+    min = 1995,
+    max = 2016,
+    value = 2010
+  ),
+  sliderInput(
+    "motor",
+    "Capacitate cilindrică:",
+    min = 500,
+    max = 3500,
+    value = 1600
+  ),
+  sliderInput(
+    "putere",
+    "Putere motor:",
+    min = 40,
+    max = 250,
+    value = 100
+  ),
+  actionButton("trimite", "Estimează preț"),
+  card(
+    verbatimTextOutput("pred1"),
+    verbatimTextOutput("pred2")
+  )
+)
+ 
+server <- function(input, output, session) {
+  output$mychoices <- renderUI({
+    switch(input$maker,
+           'ford' = selectInput('model', 
+                                   label = 'Selectează modelul',
+                                   unique(data[which(data$maker=="ford"),]$model)),
+           'skoda' = selectInput('model', 
+                                   label = 'Selectează modelul', 
+                                   unique(data[which(data$maker=="skoda"),]$model)),
+           'opel' = selectInput('model', 
+                                   label = 'Selectează modelul', 
+                                   unique(data[which(data$maker=="opel"),]$model)),
+           'audi' = selectInput('model', 
+                                   label = 'Selectează modelul', 
+                                   unique(data[which(data$maker=="audi"),]$model)),
+           'bmw' = selectInput('model', 
+                                   label = 'Selectează modelul', 
+                                   unique(data[which(data$maker=="bmw"),]$model)),
+           'volvo' = selectInput('model', 
+                                   label = 'Selectează modelul', 
+                                   unique(data[which(data$maker=="volvo"),]$model)),
+           'volkswagen' = selectInput('model', 
+                                   label = 'Selectează modelul', 
+                                   unique(data[which(data$maker=="volkswagen"),]$model)),
+           'renault' = selectInput('model', 
+                                   label = 'Selectează modelul', 
+                                   unique(data[which(data$maker=="renault"),]$model)),
+           'peugeot' = selectInput('model', 
+                                   label = 'Selectează modelul', 
+                                   unique(data[which(data$maker=="peugeot"),]$model)),)
+  })
+
+  new <- reactiveValues(d=NA)
+
+  observeEvent(input$trimite, {
+    new$d <- data.frame(mileage=input$km, year=input$an, engine=input$motor, power=input$putere)
+    data2 <- data %>% filter(maker==input$maker & model==input$model)
+    m1 <- lm(price~mileage+year+engine+power, data=data2)
+    m2 <- lm(price~I(mileage^(-1/100))+splines::bs(year, 4)+engine+power, data=data2)
+    pred1 <- predict(m1, newdata=new$d)
+    pred2 <- predict(m2, newdata=new$d)
+    output$pred1 <- renderPrint({
+      sprintf("Estimarea modelului liniar este  %1.f Euro.", pred1)
+    })
+    output$pred2 <- renderPrint({
+      sprintf("Estimarea modelului neliniar este %1.f Euro.", pred2)
+    })
+  })
+}
+
+# Create Shiny app ----
+shinyApp(ui = ui, server = server)
+```
+
 ### Referințe
 
 \(1\) <https://www.kaggle.com/datasets/nestorwinamo/used-car-database-in-europe>
 
 \(2\) <https://alexamarioarei.quarto.pub/curs-mreg-fmi/>
 
-\(3\)
+\(3\) <https://www.youtube.com/playlist?list=PLbARZQfpqIKJcO4Srr6mnQorL3wFhiV7t>
